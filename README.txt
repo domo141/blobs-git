@@ -2,7 +2,7 @@
 Binary Large OBJects in Git
 ===========================
 
-Last modified: Sun 16 Apr 2017 23:14:07 +0300 too
+Last modified: Sun 16 Apr 2017 23:54:42 +0300 too
 
 The script 'blobs-git' provides a way to store and load single files
 from a (separate) git repository. This is one attempt to "solve" the
@@ -16,6 +16,10 @@ created by concatenating sha-256 checksum of the file, '+' or '-'
 (whether file more is 755 or 644, respectively) and size of the
 file. The filename if this single file in each branch, is also
 the same content-addressable name just created.
+
+(I would have used git internal hash, but due to current SHA-1
+controversy I'd like to wait for what that is going to convert
+to...)
 
 Before using 'blobs-git' empty git repository is to be created
 somewhere (blobs-git make has option --init-repo, which may be
@@ -40,7 +44,7 @@ $ ./blobs-git pick origin-blobs %/../blobs \
 would, when located in a git repo, look its remote origin, and append
 '-blobs' to its expanded location, and from there pick zero-sized blob,
 with permissions 0644 and write the downloaded blob to ../blobs directory
-related to the root directory of  current git working copy.
+relative to the root directory of current git working copy.
 
 The last command introduced, './blobs-git list [--raw] {repo}' lists
 all refs of the repository. In remote repositories this "whispers"
@@ -53,5 +57,5 @@ For demonstration purposes, this repository contains also branches
 for all of these files (unsurprisingly stored using this tool).
 Internally it doesn't cause any increase in storage size, as the blobs
 are the same as in this 'master' branch.
-Simple integrity-checking test-demo.sh tool is in works, and may
+Simple integrity-checking test-demo.sh tool is in the works, and may
 appear here any week now...
