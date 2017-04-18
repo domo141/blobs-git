@@ -2,7 +2,7 @@
 Binary Large OBJects in Git
 ===========================
 
-Last modified: Sun 16 Apr 2017 23:54:42 +0300 too
+Last modified: Tue 18 Apr 2017 20:45:16 +0300 too
 
 The script 'blobs-git' provides a way to store and load single files
 from a (separate) git repository. This is one attempt to "solve" the
@@ -56,6 +56,15 @@ this list one can figure out the state of these 'blobs' repositories.
 For demonstration purposes, this repository contains also branches
 for all of these files (unsurprisingly stored using this tool).
 Internally it doesn't cause any increase in storage size, as the blobs
-are the same as in this 'master' branch.
-Simple integrity-checking test-demo.sh tool is in the works, and may
-appear here any week now...
+are the same as in this 'master' branch. "Normally" these blobs
+would be stored in separate repository created just for this storage
+purpose.
+
+The simple integrity-checking demotool, ./test-demo.sh will show how
+blobs are looked out and picked and the names compared against their
+content. As the branches are (already) in this repository, the test
+came out a bit simpler. I've also manually removed older branches,
+whose blobs are no longer visible in master HEAD from this repo,
+using standard git remove branch deletion convention. Usually blobs
+would not be deleted without a good reason -- here the good reason is
+just to make the test a bit cleaner.
