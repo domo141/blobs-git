@@ -8,7 +8,7 @@
 #	    All rights reserved
 #
 # Created: Mon 17 Apr 2017 10:30:07 EEST too
-# Last modified: Tue 18 Apr 2017 20:48:11 +0300 too
+# Last modified: Wed 19 Apr 2017 18:32:23 +0300 too
 
 case ~ in '~') echo "'~' does not expand. old /bin/sh?" >&2; exit 1; esac
 
@@ -55,7 +55,7 @@ tmpdir=`mktemp -d td.XXXXXX`
 trap 'rm -rf $tmpdir; trap - 0' 0 INT HUP TERM QUIT
 
 # remote is (most probably) sorted already, but don't depend on it.
-./blobs-git list origin | grep ............... | sort > $tmpdir/remote-branches
+./blobs-git list origin | sed -n '/.............../ s/ *//p' | sort > $tmpdir/remote-branches
 echo
 echo Remote branches:
 cat $tmpdir/remote-branches
