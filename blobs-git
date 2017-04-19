@@ -8,7 +8,7 @@
 #	    All rights reserved
 #
 # Created: Sat 15 Apr 2017 12:07:45 EEST too
-# Last modified: Tue 18 Apr 2017 19:39:21 +0300 too
+# Last modified: Wed 19 Apr 2017 18:25:22 +0300 too
 
 # As Git, this software is distributed under the terms of the GNU GPL version 2
 # https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html
@@ -170,75 +170,13 @@ cmd_send () # put blobs to repository (by filename...)
 	fi
 }
 
-git_list ()
-{
-	perl -e 'use strict; use warnings; use IO::Socket::INET;
-	     my ($remote, $path) = split "/", $ARGV[0], 2;
-	     $remote = "$remote:9418" unless $remote =~ /:/;
-	     alarm 60;
-	     my $s = IO::Socket::INET->new($remote) or die "$remote: $!";
-	     my $msg = "git-upload-pack /$path\0host=$remote\0";
-	     $msg = sprintf "%04x%s", 4 + length($msg), $msg;
-	     print $s $msg;
-	     print $s "0000";
-	     while (<$s>) { print $_; exit if $s =~ /^0000/; }
-	' "$1"
-}
-
-ssh_with_io ()
-{
-	perl -e 'use strict; use warnings; use Socket; $^F = 1;
-	  socketpair P, C, PF_UNIX, SOCK_STREAM, 0 or die "socketpair: $!";
-	  unless (fork) {
-	       open STDIN, "<&", \*C or die;
-	       open STDOUT, ">&", \*C or die;
-	       exec "ssh", @ARGV;
-	       die "not reached";
-	  }
-	  close C;
-	  alarm 60;
-	  my $p = "";
-	  sub x0 () { print P "0000\n"; exit; }
-	  while (sysread P, $_, 524288) {
-	      print $_;
-	      x0 if $_ =~ /^0000/m;
-	      if (length($_) < 4) {
-		 #extremely unlikely, but possible
-		 $_ = $p . $_; x0 if $_ =~ /^0000/m;
-	      }
-	      $p = substr $_, -4;
-	  }' "$@"
-}
-
 cmd_list () # [--raw] list blobs in repository
 {
 	test "${1-}" = --raw && { filter=cat; shift; } ||
-		filter="sed -n 's|.*[ /]refs/heads/||p'"
+		filter='sed -n '\''/refs\/heads\/.\{66,\}/ s|.*/heads/| |p'\'
 	test $# -gt 0 || _uwr '[--raw] {repo}'
 	get_remote "$1"; shift
-	case $remote in http*://*)
-			http_get "$remote/info/refs?service=git-upload-pack" \
-				| eval $filter
-		;; git://*) git_list "${remote#git://}" | eval $filter
-		# xxx unify with cmd_make
-		;; ssh://*)
-			remote=${remote#ssh://} # drop ssh:// prefix
-			host=${remote%%/*} remote=${remote#*/}
-			case $remote in '~/'*) remote=${remote#??}
-					;; *) remote=/$remote
-			esac
-			case $host in *:*) host="-p ${host#*:} ${host%%:*}"
-			esac
-			x ssh_with_io $host git-upload-pack "$remote" \
-				| eval $filter
-		;; *:*) # ssh#2
-			host=${remote%%:*} remote=${remote#*:}
-			x ssh_with_io $host git-upload-pack "$remote" \
-				| eval $filter
-		;; *) # file
-			set +f
-			x find $remote/refs/heads -type f | sort | eval $filter
-	esac
+	git ls-remote "$remote" | eval $filter
 }
 
 cmd_make () # make new blobs repository (e.g. push readme to master)
