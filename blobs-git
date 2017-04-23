@@ -8,7 +8,7 @@
 #	    All rights reserved
 #
 # Created: Sat 15 Apr 2017 12:07:45 EEST too
-# Last modified: Wed 19 Apr 2017 18:25:22 +0300 too
+# Last modified: Sun 23 Apr 2017 12:50:28 +0300 too
 
 # As Git, this software is distributed under the terms of the GNU GPL version 2
 # https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html
@@ -51,19 +51,6 @@ usage ()
 	printf '%s\n' "$@"
 	echo
 	exit 1
-}
-
-http_get ()
-{
-	if command -v curl >/dev/null
-	then http_get () {
-		x curl -sS -L -A 'git/2.7.4' -H 'Connection: Close' "$@"
-	}
-	else http_get () {
-		x wget -q -O - -U 'git/2.7.4' --no-http-keep-alive "$@"
-	}
-	fi
-	http_get "$@"
 }
 
 get_remote ()
@@ -111,6 +98,7 @@ cmd_pick () # get blobs from repository (by sha256-hash[+-]size...)
 		}
 		x git clone --depth=1 --single-branch --branch "$fidn" \
 			"$remote" "$tmpdir"/git
+		# todo, use exec_ca_name to verify what was cloned
 		x mv "$tmpdir"/git/"$fidn" "$trgdir"
 		rm -rf "$tmpdir"/git
 	done
@@ -179,46 +167,56 @@ cmd_list () # [--raw] list blobs in repository
 	git ls-remote "$remote" | eval $filter
 }
 
+_make_init_ssh ()
+{
+	case $remote in *"'"*)
+		# note: using $() instead of `` due to \-expansion difference
+		remote=$(printf %s "$remote" | sed "s/'/'\\\\''/g")
+	esac
+	case $remote in *.git) ;; *) remote=$remote.git ;; esac
+	ssh $host "mkdir '$remote'
+		git -C '$remote' init --bare --template=/dev/null"
+}
+
+_make_init_file ()
+{
+	case $remote in *.git) ;; *) remote=$remote.git ;; esac
+	mkdir "$remote"
+	git -C "$remote" init --bare --template=/dev/null
+}
+
 cmd_make () # make new blobs repository (e.g. push readme to master)
 {
 	case ${1-} in --init-repo) init=true; shift ;; *) init=false ;; esac
 	test $# -gt 0 || usage "[--init-repo] {repo}"
-	set_tmpdir "$PWD"
-	remote=$1
-	case $remote in
-		http*://* | git:*)
-			if $init
-			then die "Cannot init repository using this protocol"
-			fi
-		# xxx unify with cmd_list
+	if $init
+	then case $1
+		in http*://* | git:*)
+			die "Cannot init repository using this protocol"
 		;; ssh://*)
-			remote=${remote#ssh://} # drop ssh:// prefix
+			remote=${1#ssh://} # drop ssh:// prefix
 			host=${remote%%/*} remote=${remote#*/}
 			case $remote in '~/'*) remote=${remote#??}
 					;; *) remote=/$remote
 			esac
 			case $host in *:*) host="-p ${host#*:} ${host%%:*}"
 			esac
-			case $remote in *.git) ;; *) remote=$remote.git ;; esac
-			if $init
-			then ssh $host "mkdir '$remote'
-			    git -C '$remote' init --bare --template=/dev/null"
-			fi
+			_make_init_ssh
+		;; file:///*)
+			remote=${1#file://}
+			_make_init_file
+		;; file://*)
+			die "file:/// (i.e. 3 slashes) prefix required"
 		;; *:*) # ssh#2
-			host=${remote%%:*} remote=${remote#*:}
-			case $remote in *.git) ;; *) remote=$remote.git ;; esac
-			if $init
-			then ssh $host "mkdir '$remote'
-			    git -C '$remote' init --bare --template=/dev/null"
-			fi
+			host=${1%%:*} remote=${1#*:}
+			_make_init_ssh
 		;; *) # file
-			case $remote in *.git) ;; *) remote=$remote.git ;; esac
-			mkdir "$remote"
-			if $init
-			then git -C "$remote" init --bare --template=/dev/null
-			fi
-	esac
+			remote=$1
+			_make_init_file
+	esac; fi
+	remote=$1
 	set_git_env_vars
+	set_tmpdir /tmp
 	(cd "$tmpdir" && exec git init --template=/dev/null)
 	printf > "$tmpdir"/README %s\\n '' \
 	      'Binary Large OBJect storage in Git repository' \
@@ -230,7 +228,7 @@ cmd_make () # make new blobs repository (e.g. push readme to master)
 	      'If you cloned this repository, you now have' \
 	      'backup if it -- congratulations."' ''
 
-	(cd "$tmpdir" && git add README && git commit -m vakio)
+	(cd "$tmpdir" && git add README && exec git commit -m vakio)
 	git --git-dir $tmpdir/.git push "$remote" HEAD:master
 }
 
